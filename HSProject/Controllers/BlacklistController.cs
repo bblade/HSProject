@@ -21,7 +21,7 @@ public class BlacklistController : ControllerBase {
             var blacklistIds = blacklistEntries
                 .AsParallel()
                 .Where(entry =>
-                    goods.Title.Split(' ')
+                    goods.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                     .Intersect(entry.Words, StringComparer.OrdinalIgnoreCase).Any())
                     .Select(entry => entry.Id);
 
