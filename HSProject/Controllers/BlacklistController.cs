@@ -2,37 +2,32 @@
 
 using Microsoft.AspNetCore.Mvc;
 
-namespace HSProject.Controllers; 
+namespace HSProject.Controllers;
 public class BlacklistController : ControllerBase {
 
     [HttpPost("api/check")]
     public IActionResult Check([FromBody] BlacklistDto blacklistDto) {
-        IEnumerable<Goods> goods = blacklistDto.Goods;
+        IEnumerable<Goods> goodsList = blacklistDto.Goods;
         IEnumerable<BlacklistEntry> blacklistEntries = blacklistDto.Blacklist;
+        List<OutputEntry> outputList = [];
 
-        var filteredGoods = goods
-            .Where(g =>
-                blacklistEntries.Any(entry =>
-                    g.Title
-                        .Split(' ')
-                        .Intersect(entry.Text.Split(' '), StringComparer.OrdinalIgnoreCase).Any()
-                )
-            )
-            .Select(g => {
-                var matchedBlacklistIds = blacklistEntries
-                    .Where(entry => g.Title.Split(' ')
-                        .Intersect(entry.Text.Split(' '), StringComparer.OrdinalIgnoreCase).Any())
-                    .Select(entry => entry.Id)
-                    .ToList();
+        foreach (var goods in goodsList) {
+            var blacklistIds = blacklistEntries
+                .Where(entry =>
+                    goods.Title.Split(' ')
+                    .Intersect(entry.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase).Any())
+                    .Select(entry => entry.Id);
 
-                return new {
-                    g.Id,
-                    g.Title,
-                    MatchedBlacklistIds = matchedBlacklistIds.Distinct()
+            if (blacklistIds.Any()) {
+                OutputEntry outputEntry = new() {
+                    GoodsId = goods.Id,
+                    BlacklistIds = blacklistIds
                 };
-            })
-            .ToList();
+                outputList.Add(outputEntry);
+            }
 
-        return Ok(filteredGoods);
+        }
+
+        return Ok(outputList);
     }
 }
