@@ -2,6 +2,8 @@
 
 using Microsoft.AspNetCore.Mvc;
 
+using System.Collections.Concurrent;
+
 namespace HSProject.Controllers;
 public class BlacklistController : ControllerBase {
 
@@ -9,13 +11,18 @@ public class BlacklistController : ControllerBase {
     public IActionResult Check([FromBody] BlacklistDto blacklistDto) {
         IEnumerable<Goods> goodsList = blacklistDto.Goods;
         IEnumerable<BlacklistEntry> blacklistEntries = blacklistDto.Blacklist;
-        List<OutputEntry> outputList = [];
+        ConcurrentBag<OutputEntry> outputList = [];
 
-        foreach (var goods in goodsList) {
+        Parallel.ForEach(blacklistEntries, blacklistEntry => {
+            blacklistEntry.Words = blacklistEntry.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        });
+
+        Parallel.ForEach(goodsList, goods => {
             var blacklistIds = blacklistEntries
+                .AsParallel()
                 .Where(entry =>
                     goods.Title.Split(' ')
-                    .Intersect(entry.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries), StringComparer.OrdinalIgnoreCase).Any())
+                    .Intersect(entry.Words, StringComparer.OrdinalIgnoreCase).Any())
                     .Select(entry => entry.Id);
 
             if (blacklistIds.Any()) {
@@ -25,9 +32,17 @@ public class BlacklistController : ControllerBase {
                 };
                 outputList.Add(outputEntry);
             }
+        });
 
-        }
+        List<OutputEntry> list = outputList.ToList();
 
-        return Ok(outputList);
+        OutputDto outputDto = new() {
+            Count = list.Count,
+            Data = list
+            
+        };
+
+
+        return Ok(outputDto);
     }
 }
