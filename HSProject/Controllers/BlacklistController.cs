@@ -1,47 +1,23 @@
 ﻿using HSProject.Models;
+using HSProject.Services;
 
 using Microsoft.AspNetCore.Mvc;
 
-using System.Collections.Concurrent;
-
 namespace HSProject.Controllers;
-public class BlacklistController : ControllerBase {
+public class BlacklistController(BlacklistService blacklistService) : ControllerBase {
 
     [HttpPost("api/check")]
     public IActionResult Check([FromBody] BlacklistDto blacklistDto) {
-        IEnumerable<Goods> goodsList = blacklistDto.Goods;
-        IEnumerable<BlacklistEntry> blacklistEntries = blacklistDto.Blacklist;
-        ConcurrentBag<OutputEntry> outputList = [];
 
-        Parallel.ForEach(blacklistEntries, blacklistEntry => {
-            blacklistEntry.Words = blacklistEntry.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        });
+        var outputDto = blacklistService.Check(blacklistDto);
 
-        Parallel.ForEach(goodsList, goods => {
-            var blacklistIds = blacklistEntries
-                .AsParallel()
-                .Where(entry =>
-                    goods.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .Intersect(entry.Words, StringComparer.OrdinalIgnoreCase).Any())
-                    .Select(entry => entry.Id);
+        return Ok(outputDto);
+    }
 
-            if (blacklistIds.Any()) {
-                OutputEntry outputEntry = new() {
-                    GoodsId = goods.Id,
-                    BlacklistIds = blacklistIds
-                };
-                outputList.Add(outputEntry);
-            }
-        });
+    [HttpPost("api/check2")]
+    public IActionResult Check2([FromBody] BlacklistDto blacklistDto) {
 
-        List<OutputEntry> list = outputList.ToList();
-
-        OutputDto outputDto = new() {
-            Count = list.Count,
-            Data = list
-            
-        };
-
+        var outputDto = blacklistService.Check2(blacklistDto);
 
         return Ok(outputDto);
     }

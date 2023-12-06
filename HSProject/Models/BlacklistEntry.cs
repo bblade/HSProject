@@ -6,4 +6,6 @@ public class BlacklistEntry {
     public string Text { get; set; } = string.Empty;
     [JsonIgnore]
     public IEnumerable<string> Words { get; set; } = [];
+
+    public string ComparisonType { get; set; } = "AnyWord";
 }
