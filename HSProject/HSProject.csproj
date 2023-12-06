@@ -7,4 +7,11 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="mypublish\**" />
+    <Content Remove="mypublish\**" />
+    <EmbeddedResource Remove="mypublish\**" />
+    <None Remove="mypublish\**" />
+  </ItemGroup>
+
 </Project>
