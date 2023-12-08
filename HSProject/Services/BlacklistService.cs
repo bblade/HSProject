@@ -6,6 +6,7 @@ namespace HSProject.Services;
 public class BlacklistService {
 
     const double allowedDifference = 0.25;
+    private static readonly char[] separatorChars = [' ', ',', ';', '[', ']', '{', '}'];
 
     public OutputDto Check(BlacklistDto blacklistDto) {
         IEnumerable<Goods> goodsList = blacklistDto.Goods;
@@ -17,8 +18,19 @@ public class BlacklistService {
                 b.ComparisonType.Equals("AnyWord") ||
                 b.ComparisonType.Equals("AllWords")),
             blacklistEntry => {
-                blacklistEntry.Words = blacklistEntry.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                blacklistEntry.Words = blacklistEntry.Text.Split(separatorChars, StringSplitOptions.RemoveEmptyEntries);
             });
+
+        Parallel.ForEach(goodsList, goods => {
+            var goodsTitleWords = goods.Title.Split(separatorChars, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var goodsTitleWord in goodsTitleWords) {
+                var goodsWord = new GoodsListWord {
+                    Word = goodsTitleWord
+                };
+                goods.Words.Add(goodsWord);
+            };
+        });
 
         Parallel.ForEach(goodsList, goods => {
 
@@ -62,9 +74,13 @@ public class BlacklistService {
 
     static bool IsAnyWordBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
 
-        foreach (var word in goods.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
+        foreach (var word in goods.Words) {
             foreach (var blacklistWord in blacklistEntry.Words) {
-                if (Comparer.CalculateLevenshteinDistance(word, blacklistWord) <= allowedDifference) {
+                var difference = Comparer.CalculateLevenshteinDistance(word.Word, blacklistWord);
+                if (difference == 0) {
+                    word.IsExact = true;
+                    return true;
+                } else if (difference <= allowedDifference) {
                     return true;
                 }
             }
@@ -74,15 +90,30 @@ public class BlacklistService {
     }
 
     static bool IsAllWordsBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
+        foreach (var blacklistWord in blacklistEntry.Words) {
+            bool exactMatchFound = false;
 
-        if (blacklistEntry.Words.All(blacklistWord =>
-            goods.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Any(word => Comparer.CalculateLevenshteinDistance(word, blacklistWord) <= allowedDifference))) {
-            return true;
+            foreach (var word in goods.Words) {
+                var distance = Comparer.CalculateLevenshteinDistance(word.Word, blacklistWord);
+
+                if (distance == 0) {
+                    word.IsExact = true;
+                    exactMatchFound = true;
+                    break;
+                } else if (distance <= allowedDifference) {
+                    exactMatchFound = true;
+                    break;
+                }
+            }
+
+            if (!exactMatchFound) {
+                return false;
+            }
         }
 
-
-        return false;
+        return true;
     }
+
+
 
 }
