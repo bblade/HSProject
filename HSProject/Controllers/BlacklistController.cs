@@ -14,11 +14,11 @@ public class BlacklistController(BlacklistService blacklistService) : Controller
         return Ok(outputDto);
     }
 
-    [HttpPost("api/check2")]
-    public IActionResult Check2([FromBody] BlacklistDto blacklistDto) {
+    //[HttpPost("api/check2")]
+    //public IActionResult Check2([FromBody] BlacklistDto blacklistDto) {
 
-        var outputDto = blacklistService.Check2(blacklistDto);
+    //    var outputDto = blacklistService.Check2(blacklistDto);
 
-        return Ok(outputDto);
-    }
+    //    return Ok(outputDto);
+    //}
 }
