@@ -5,4 +5,5 @@ public class Goods {
     public decimal PriceEur { get; set; }
     public string Title { get; set; } = string.Empty;
     public decimal Weight { get; set; }
+    public List<GoodsListWord> Words { get; set; } = [];
 }

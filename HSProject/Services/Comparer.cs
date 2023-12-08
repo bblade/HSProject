@@ -1,21 +1,10 @@
 ﻿namespace HSProject.Services;
 public static class Comparer {
-    public static List<string> FindMatchingWords(List<string> list1, List<string> list2, int maxDifference) {
-        List<string> matchingWords = [];
 
-        foreach (string word1 in list1) {
-            foreach (string word2 in list2) {
-                if (CalculateLevenshteinDistance(word1, word2) <= maxDifference) {
-                    matchingWords.Add(word1);
-                    break;
-                }
-            }
-        }
+    public static double CalculateLevenshteinDistance(string s1, string s2) {
 
-        return matchingWords;
-    }
-
-    static int CalculateLevenshteinDistance(string s1, string s2) {
+        s1 = s1.ToLower();
+        s2 = s2.ToLower();
         int[,] distances = new int[s1.Length + 1, s2.Length + 1];
 
         for (int i = 0; i <= s1.Length; i++) {
@@ -32,6 +21,6 @@ public static class Comparer {
             }
         }
 
-        return distances[s1.Length, s2.Length];
+        return (double)distances[s1.Length, s2.Length] / s1.Length;
     }
 }

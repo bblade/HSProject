@@ -5,6 +5,8 @@ using System.Collections.Concurrent;
 namespace HSProject.Services;
 public class BlacklistService {
 
+    const double allowedDifference = 0.25;
+
     public OutputDto Check(BlacklistDto blacklistDto) {
         IEnumerable<Goods> goodsList = blacklistDto.Goods;
         IEnumerable<BlacklistEntry> blacklistEntries = blacklistDto.Blacklist;
@@ -19,19 +21,16 @@ public class BlacklistService {
             });
 
         Parallel.ForEach(goodsList, goods => {
-            var blacklistHits = blacklistEntries
+
+            var blacklistAnyWordHits = blacklistEntries
                 .AsParallel()
                 .Where(entry => entry.ComparisonType.Equals("AnyWord"))
-                .Where(entry =>
-                    goods.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .Intersect(entry.Words, StringComparer.OrdinalIgnoreCase).Any()).ToList();
+                .Where(b => IsAnyWordBlacklisted(goods, b)).ToList();
 
             var blacklistAllWordsHits = blacklistEntries
                 .AsParallel()
                 .Where(entry => entry.ComparisonType.Equals("AllWords"))
-                .Where(entry => entry.Words.All(word =>
-                    goods.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                        .Contains(word, StringComparer.OrdinalIgnoreCase))).ToList();
+                .Where(b => IsAllWordsBlacklisted(goods, b)).ToList();
 
             var blacklistExactHits = blacklistEntries
                 .AsParallel()
@@ -39,7 +38,7 @@ public class BlacklistService {
                 .Where(entry => goods.Title.Contains(entry.Text, StringComparison.InvariantCultureIgnoreCase)).ToList();
 
 
-            var blacklistTotalHits = blacklistHits.Concat(blacklistAllWordsHits).Concat(blacklistExactHits);
+            var blacklistTotalHits = blacklistAnyWordHits.Concat(blacklistAllWordsHits).Concat(blacklistExactHits);
 
             if (blacklistTotalHits.Any()) {
                 OutputEntry outputEntry = new() {
@@ -61,57 +60,29 @@ public class BlacklistService {
         return outputDto;
     }
 
-    //public OutputDto Check2(BlacklistDto blacklistDto) {
-    //    IEnumerable<Goods> goodsList = blacklistDto.Goods;
-    //    IEnumerable<BlacklistEntry> blacklistEntries = blacklistDto.Blacklist;
+    static bool IsAnyWordBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
+
+        foreach (var word in goods.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
+            foreach (var blacklistWord in blacklistEntry.Words) {
+                if (Comparer.CalculateLevenshteinDistance(word, blacklistWord) <= allowedDifference) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    static bool IsAllWordsBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
+
+        if (blacklistEntry.Words.All(blacklistWord =>
+            goods.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Any(word => Comparer.CalculateLevenshteinDistance(word, blacklistWord) <= allowedDifference))) {
+            return true;
+        }
 
 
-    //    List<BlacklistOutputEntry> blacklistOutputEntries = [];
+        return false;
+    }
 
-    //    Parallel.ForEach(blacklistEntries, blacklistEntry => {
-    //        blacklistEntry.Words = blacklistEntry.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-    //    });
-
-    //    foreach (var blackListEntry in blacklistEntries) {
-    //        BlacklistOutputEntry? blacklistOutputEntry = null;
-    //        foreach (var word in blackListEntry.Words) {
-
-    //            foreach (var goods in goodsList) {
-    //                if (goods.Title.Contains(word, StringComparison.InvariantCultureIgnoreCase)) {
-    //                    blacklistOutputEntry ??= new() {
-    //                        Id = blackListEntry.Id
-    //                    };
-    //                    blacklistOutputEntry.Goods.Add(goods.Id);
-    //                }
-    //            }
-    //        }
-
-    //        if (blacklistOutputEntry != null) {
-    //            blacklistOutputEntries.Add(blacklistOutputEntry);
-    //        }
-    //    }
-
-    //    IEnumerable<string> goodsIds = blacklistOutputEntries.SelectMany(e => e.Goods).Distinct();
-    //    List<OutputEntry> data = [];
-
-    //    foreach (var goods in goodsIds) {
-    //        data.Add(new OutputEntry() {
-    //            Goods = goods,
-    //            BlacklistEntries = blacklistOutputEntries.Where(b => b.Goods.Contains(goods)).Select(b => b.Id).ToList()
-    //        });
-    //    }
-
-    //    OutputDto outputDto = new() {
-    //        Count = data.Count,
-    //        Data = data
-
-    //    };
-
-    //    return outputDto;
-    //}
-
-    //public class BlacklistOutputEntry {
-    //    public string Id { get; set; } = string.Empty;
-    //    public List<string> Goods { get; } = [];
-    //}
 }

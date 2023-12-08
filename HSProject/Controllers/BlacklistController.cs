@@ -4,9 +4,13 @@ using HSProject.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HSProject.Controllers;
+
+[ApiController]
+[Route("api/check")]
+
 public class BlacklistController(BlacklistService blacklistService) : ControllerBase {
 
-    [HttpPost("api/check")]
+    [HttpPost]
     public IActionResult Check([FromBody] BlacklistDto blacklistDto) {
 
         var outputDto = blacklistService.Check(blacklistDto);
@@ -14,11 +18,11 @@ public class BlacklistController(BlacklistService blacklistService) : Controller
         return Ok(outputDto);
     }
 
-    //[HttpPost("api/check2")]
-    //public IActionResult Check2([FromBody] BlacklistDto blacklistDto) {
-
-    //    var outputDto = blacklistService.Check2(blacklistDto);
-
-    //    return Ok(outputDto);
-    //}
+    [HttpGet]
+    public IActionResult Compare([FromQuery] string text1, string text2) {
+        var result = Comparer.CalculateLevenshteinDistance(text1, text2);
+        return Ok(new {
+            Difference = result
+        });
+    }
 }
