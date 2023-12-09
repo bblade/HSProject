@@ -5,14 +5,19 @@ using System.Collections.Concurrent;
 namespace HSProject.Services;
 public class BlacklistService {
 
-    const double allowedDifference = 0.25;
+    private static double allowedDifference;
     private static readonly char[] separatorChars = [' ', ',', ';', '[', ']', '{', '}'];
+    private static readonly object lockObject = new();
 
     public OutputDto Check(BlacklistDto blacklistDto) {
+
+        allowedDifference = blacklistDto.AllowedDifference;
+
         IEnumerable<Goods> goodsList = blacklistDto.Goods;
         IEnumerable<BlacklistEntry> blacklistEntries = blacklistDto.Blacklist;
         ConcurrentBag<OutputEntry> outputList = [];
 
+        // split blacklist entries into words
         Parallel.ForEach(blacklistEntries
             .Where(b =>
                 b.ComparisonType.Equals("AnyWord") ||
@@ -21,15 +26,12 @@ public class BlacklistService {
                 blacklistEntry.Words = blacklistEntry.Text.Split(separatorChars, StringSplitOptions.RemoveEmptyEntries);
             });
 
+        // split goods title entries into words
         Parallel.ForEach(goodsList, goods => {
             var goodsTitleWords = goods.Title.Split(separatorChars, StringSplitOptions.RemoveEmptyEntries);
 
-            foreach (var goodsTitleWord in goodsTitleWords) {
-                var goodsWord = new GoodsListWord {
-                    Word = goodsTitleWord
-                };
-                goods.Words.Add(goodsWord);
-            };
+            goods.Words = [.. goodsTitleWords];
+
         });
 
         Parallel.ForEach(goodsList, goods => {
@@ -49,6 +51,9 @@ public class BlacklistService {
                 .Where(entry => entry.ComparisonType.Equals("Exact"))
                 .Where(entry => goods.Title.Contains(entry.Text, StringComparison.InvariantCultureIgnoreCase)).ToList();
 
+            foreach (var blacklistEntry in blacklistExactHits) {
+                goods.WordHits.Add(new() { Precision = 1, Word = blacklistEntry.Text });
+            }
 
             var blacklistTotalHits = blacklistAnyWordHits.Concat(blacklistAllWordsHits).Concat(blacklistExactHits);
 
@@ -65,48 +70,68 @@ public class BlacklistService {
 
         OutputDto outputDto = new() {
             Count = list.Count,
-            Data = list
-
         };
+
+        foreach (var item in list) {
+            outputDto.Data.Add(item.Goods?.Id ?? string.Empty, item);
+        }
 
         return outputDto;
     }
 
     static bool IsAnyWordBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
 
-        foreach (var word in goods.Words) {
-            foreach (var blacklistWord in blacklistEntry.Words) {
-                var difference = Comparer.CalculateLevenshteinDistance(word.Word, blacklistWord);
-                if (difference == 0) {
-                    word.IsExact = true;
-                    return true;
-                } else if (difference <= allowedDifference) {
-                    return true;
+        foreach (string word in goods.Words) {
+            foreach (string blacklistWord in blacklistEntry.Words) {
+
+                double difference = Comparer.CalculateLevenshteinDistance(word, blacklistWord);
+
+                if (difference <= allowedDifference) {
+                    lock (lockObject) {
+                        GoodsListWord? goodsListWord = goods.WordHits.FirstOrDefault(w => w.Word == word);
+                        if (goodsListWord == null) {
+                            goodsListWord = new GoodsListWord() { Word = word };
+                            goods.WordHits.Add(goodsListWord);
+                        }
+                        double precision = 1 - difference;
+                        if (goodsListWord.Precision < precision) {
+                            goodsListWord.Precision = precision;
+                        }
+                        return true;
+                    }
                 }
             }
         }
-
         return false;
     }
 
     static bool IsAllWordsBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
-        foreach (var blacklistWord in blacklistEntry.Words) {
-            bool exactMatchFound = false;
 
-            foreach (var word in goods.Words) {
-                var distance = Comparer.CalculateLevenshteinDistance(word.Word, blacklistWord);
 
-                if (distance == 0) {
-                    word.IsExact = true;
-                    exactMatchFound = true;
-                    break;
-                } else if (distance <= allowedDifference) {
-                    exactMatchFound = true;
-                    break;
+        foreach (string blacklistWord in blacklistEntry.Words) {
+            bool matchFound = false;
+
+            foreach (string word in goods.Words) {
+                double difference = Comparer.CalculateLevenshteinDistance(word, blacklistWord);
+
+                if (difference <= allowedDifference) {
+                    lock (lockObject) {
+                        GoodsListWord? goodsListWord = goods.WordHits.FirstOrDefault(w => w.Word == word);
+                        if (goodsListWord == null) {
+                            goodsListWord = new GoodsListWord() { Word = word };
+                            goods.WordHits.Add(goodsListWord);
+                        }
+                        double precision = 1 - difference;
+                        if (goodsListWord.Precision < precision) {
+                            goodsListWord.Precision = precision;
+                        }
+
+                        matchFound = true;
+                    }
                 }
             }
 
-            if (!exactMatchFound) {
+            if (!matchFound) {
                 return false;
             }
         }

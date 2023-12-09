@@ -7,7 +7,6 @@ namespace HSProject.Controllers;
 
 [ApiController]
 [Route("api/check")]
-
 public class BlacklistController(BlacklistService blacklistService) : ControllerBase {
 
     [HttpPost]
