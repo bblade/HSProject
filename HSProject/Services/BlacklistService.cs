@@ -25,15 +25,15 @@ public class BlacklistService {
                 b.ComparisonType.Equals("AllWords")),
             blacklistEntry => {
                 blacklistEntry.Words = blacklistEntry.Text
-                .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
-                .Except(exceptWords);
+                    .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                    .Except(exceptWords);
             });
 
         // split goods title entries into words
         Parallel.ForEach(goodsList, goods => {
             var goodsTitleWords = goods.Title
-            .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
-            .Except(exceptWords);
+                .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                .Except(exceptWords);
 
             goods.Words = [.. goodsTitleWords];
 
@@ -54,13 +54,20 @@ public class BlacklistService {
             var blacklistExactHits = blacklistEntries
                 .AsParallel()
                 .Where(entry => entry.ComparisonType.Equals("Exact"))
-                .Where(entry => goods.Title.Contains(entry.Text, StringComparison.InvariantCultureIgnoreCase)).ToList();
+                .Where(entry => goods.Title
+                    .Contains(entry.Text, StringComparison.InvariantCultureIgnoreCase))
+                    .ToList();
 
             foreach (var blacklistEntry in blacklistExactHits) {
-                goods.WordHits.Add(new() { Precision = 1, Word = blacklistEntry.Text });
+                goods.WordHits.Add(new() { 
+                    Precision = 1, 
+                    Word = blacklistEntry.Text 
+                });
             }
 
-            var blacklistTotalHits = blacklistAnyWordHits.Concat(blacklistAllWordsHits).Concat(blacklistExactHits);
+            var blacklistTotalHits = blacklistAnyWordHits
+                .Concat(blacklistAllWordsHits)
+                .Concat(blacklistExactHits);
 
             if (blacklistTotalHits.Any()) {
                 OutputEntry outputEntry = new() {
@@ -89,11 +96,13 @@ public class BlacklistService {
         foreach (string word in goods.Words) {
             foreach (string blacklistWord in blacklistEntry.Words) {
 
-                double difference = Comparer.CalculateLevenshteinDistance(word, blacklistWord);
+                double difference = Comparer
+                    .CalculateLevenshteinDistance(word, blacklistWord);
 
                 if (difference <= allowedDifference) {
                     lock (lockObject) {
-                        GoodsListWord? goodsListWord = goods.WordHits.FirstOrDefault(w => w.Word == word);
+                        GoodsListWord? goodsListWord = goods.WordHits
+                            .FirstOrDefault(w => w.Word == word);
                         if (goodsListWord == null) {
                             goodsListWord = new GoodsListWord() { Word = word };
                             goods.WordHits.Add(goodsListWord);
@@ -116,11 +125,13 @@ public class BlacklistService {
             bool matchFound = false;
 
             foreach (string word in goods.Words) {
-                double difference = Comparer.CalculateLevenshteinDistance(word, blacklistWord);
+                double difference = Comparer
+                    .CalculateLevenshteinDistance(word, blacklistWord);
 
                 if (difference <= allowedDifference) {
                     lock (lockObject) {
-                        GoodsListWord? goodsListWord = goods.WordHits.FirstOrDefault(w => w.Word == word);
+                        GoodsListWord? goodsListWord = goods.WordHits
+                            .FirstOrDefault(w => w.Word == word);
                         if (goodsListWord == null) {
                             goodsListWord = new GoodsListWord() { Word = word };
                             goods.WordHits.Add(goodsListWord);
@@ -142,7 +153,4 @@ public class BlacklistService {
 
         return true;
     }
-
-
-
 }
