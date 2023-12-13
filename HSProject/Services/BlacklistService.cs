@@ -16,6 +16,7 @@ public class BlacklistService {
         IEnumerable<Goods> goodsList = blacklistDto.Goods;
         IEnumerable<BlacklistEntry> blacklistEntries = blacklistDto.Blacklist;
         ConcurrentBag<OutputEntry> outputList = [];
+        IEnumerable<string> exceptWords = blacklistDto.ExceptWords;
 
         // split blacklist entries into words
         Parallel.ForEach(blacklistEntries
@@ -23,12 +24,16 @@ public class BlacklistService {
                 b.ComparisonType.Equals("AnyWord") ||
                 b.ComparisonType.Equals("AllWords")),
             blacklistEntry => {
-                blacklistEntry.Words = blacklistEntry.Text.Split(separatorChars, StringSplitOptions.RemoveEmptyEntries);
+                blacklistEntry.Words = blacklistEntry.Text
+                .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                .Except(exceptWords);
             });
 
         // split goods title entries into words
         Parallel.ForEach(goodsList, goods => {
-            var goodsTitleWords = goods.Title.Split(separatorChars, StringSplitOptions.RemoveEmptyEntries);
+            var goodsTitleWords = goods.Title
+            .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+            .Except(exceptWords);
 
             goods.Words = [.. goodsTitleWords];
 
@@ -106,7 +111,6 @@ public class BlacklistService {
     }
 
     static bool IsAllWordsBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
-
 
         foreach (string blacklistWord in blacklistEntry.Words) {
             bool matchFound = false;
