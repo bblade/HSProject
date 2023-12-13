@@ -6,7 +6,8 @@ builder.Services.AddControllers().AddJsonOptions(options => {
     options.JsonSerializerOptions.PropertyNamingPolicy = null;
 });
 
-builder.Services.AddScoped<BlacklistService>();
+builder.Services.AddScoped<BlacklistService>()
+                .AddScoped<ManifestImporterService>();
 
 WebApplication app = builder.Build();
 
