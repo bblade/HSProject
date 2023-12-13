@@ -6,8 +6,7 @@ namespace HSProject.Services;
 public class BlacklistService {
 
     private static double allowedDifference;
-    private static readonly char[] separatorChars = [' ', ',', ';', '[', ']', '{', '}'];
-    private static readonly object lockObject = new();
+    private static readonly char[] separatorChars = [' ', ',', ';', '[', ']', '{', '}', '(', ')'];
 
     public OutputDto Check(InputDto inputDto) {
 
@@ -18,10 +17,8 @@ public class BlacklistService {
         ConcurrentBag<OutputEntry> outputList = [];
         IEnumerable<string> exceptWords = inputDto.ExceptWords;
         IEnumerable<HsCode> hsCodes = inputDto.HsCodes;
+        decimal defaultPriceLimit = inputDto.DefaultPriceLimit;
 
-
-
-        // split blacklist entries into words
         Parallel.ForEach(blacklistEntries
             .Where(b =>
                 b.ComparisonType.Equals("AnyWord") ||
@@ -31,8 +28,6 @@ public class BlacklistService {
                     .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
                     .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase);
             });
-
-        //var blacklistedHsCodes = hsCodes.Where(b => b.IsBlacklisted).ToList();
 
         Parallel.ForEach(goodsList, goods => {
 
@@ -66,15 +61,15 @@ public class BlacklistService {
                     .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase)
                     .Select(w => new GoodsListWord() {
                         Word = w
-                });
+                    });
 
                 goods.Words = [.. goodsTitleWords];
 
 
                 var blacklistAnyWordHits = blacklistEntries
-                .AsParallel()
-                .Where(entry => entry.ComparisonType.Equals("AnyWord"))
-                .Where(b => IsAnyWordBlacklisted(goods, b)).ToList();
+                    .AsParallel()
+                    .Where(entry => entry.ComparisonType.Equals("AnyWord"))
+                    .Where(b => IsAnyWordBlacklisted(goods, b)).ToList();
 
                 var blacklistAllWordsHits = blacklistEntries
                     .AsParallel()
@@ -100,9 +95,16 @@ public class BlacklistService {
                     .Concat(blacklistExactHits);
 
                 if (blacklistTotalHits.Any()) {
+                    goods.Status = "stopList";
                     OutputEntry outputEntry = new() {
                         Goods = goods,
                         BlacklistEntries = [.. blacklistTotalHits]
+                    };
+                    outputList.Add(outputEntry);
+                } else if (goods.PriceEur > defaultPriceLimit) {
+                    goods.Status = "priceLimit";
+                    OutputEntry outputEntry = new() {
+                        Goods = goods
                     };
                     outputList.Add(outputEntry);
                 }
@@ -123,6 +125,8 @@ public class BlacklistService {
         return outputDto;
     }
 
+
+
     static bool IsAnyWordBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
 
         foreach (GoodsListWord word in goods.Words) {
@@ -132,13 +136,11 @@ public class BlacklistService {
                     .CalculateLevenshteinDistance(word.Word, blacklistWord);
 
                 if (difference <= allowedDifference) {
-                    lock (lockObject) {
-                        double precision = 1 - difference;
-                        if (word.Precision < precision) {
-                            word.Precision = precision;
-                        }
-                        return true;
+                    double precision = 1 - difference;
+                    if (word.Precision < precision) {
+                        word.Precision = precision;
                     }
+                    return true;
                 }
             }
         }
@@ -155,14 +157,11 @@ public class BlacklistService {
                     .CalculateLevenshteinDistance(word.Word, blacklistWord);
 
                 if (difference <= allowedDifference) {
-                    lock (lockObject) {
-                        double precision = 1 - difference;
-                        if (word.Precision < precision) {
-                            word.Precision = precision;
-                        }
-
-                        matchFound = true;
+                    double precision = 1 - difference;
+                    if (word.Precision < precision) {
+                        word.Precision = precision;
                     }
+                    matchFound = true;
                 }
             }
 
