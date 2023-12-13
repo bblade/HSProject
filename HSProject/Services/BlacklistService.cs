@@ -41,7 +41,10 @@ public class BlacklistService {
         Parallel.ForEach(goodsList.Where(g => !g.IsHsCodeBlacklisted), goods => {
             var goodsTitleWords = goods.Title
                 .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
-                .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase);
+                .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase)
+                .Select(w => new GoodsListWord() {
+                    Word = w
+                });
 
             goods.Words = [.. goodsTitleWords];
 
@@ -66,14 +69,14 @@ public class BlacklistService {
                     .Contains(entry.Text, StringComparison.InvariantCultureIgnoreCase))
                     .ToList();
 
-            foreach (var blacklistEntry in blacklistExactHits) {
-                goods.WordHits.Add(new() {
-                    Precision = 1,
-                    Word = blacklistEntry.Text
-                });
-            }
+            // foreach (var blacklistEntry in blacklistExactHits) {
+            //     goods.Words.Add(new() {
+            //         Precision = 1,
+            //         Word = blacklistEntry.Text
+            //     });
+            // }
 
-            var blacklistTotalHits = blacklistAnyWordHits
+            IEnumerable<BlacklistEntry> blacklistTotalHits = blacklistAnyWordHits
                 .Concat(blacklistAllWordsHits)
                 .Concat(blacklistExactHits);
 
@@ -105,23 +108,17 @@ public class BlacklistService {
 
     static bool IsAnyWordBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
 
-        foreach (string word in goods.Words) {
+        foreach (GoodsListWord word in goods.Words) {
             foreach (string blacklistWord in blacklistEntry.Words) {
 
                 double difference = Comparer
-                    .CalculateLevenshteinDistance(word, blacklistWord);
+                    .CalculateLevenshteinDistance(word.Word, blacklistWord);
 
                 if (difference <= allowedDifference) {
                     lock (lockObject) {
-                        GoodsListWord? goodsListWord = goods.WordHits
-                            .FirstOrDefault(w => w.Word == word);
-                        if (goodsListWord == null) {
-                            goodsListWord = new GoodsListWord() { Word = word };
-                            goods.WordHits.Add(goodsListWord);
-                        }
                         double precision = 1 - difference;
-                        if (goodsListWord.Precision < precision) {
-                            goodsListWord.Precision = precision;
+                        if (word.Precision < precision) {
+                            word.Precision = precision;
                         }
                         return true;
                     }
@@ -136,21 +133,15 @@ public class BlacklistService {
         foreach (string blacklistWord in blacklistEntry.Words) {
             bool matchFound = false;
 
-            foreach (string word in goods.Words) {
+            foreach (GoodsListWord word in goods.Words) {
                 double difference = Comparer
-                    .CalculateLevenshteinDistance(word, blacklistWord);
+                    .CalculateLevenshteinDistance(word.Word, blacklistWord);
 
                 if (difference <= allowedDifference) {
                     lock (lockObject) {
-                        GoodsListWord? goodsListWord = goods.WordHits
-                            .FirstOrDefault(w => w.Word == word);
-                        if (goodsListWord == null) {
-                            goodsListWord = new GoodsListWord() { Word = word };
-                            goods.WordHits.Add(goodsListWord);
-                        }
                         double precision = 1 - difference;
-                        if (goodsListWord.Precision < precision) {
-                            goodsListWord.Precision = precision;
+                        if (word.Precision < precision) {
+                            word.Precision = precision;
                         }
 
                         matchFound = true;

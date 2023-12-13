@@ -11,8 +11,8 @@ public class Goods {
     public decimal Weight { get; set; }
 
     // [JsonIgnore]
-    public List<string> Words { get; set; } = [];
+    public List<GoodsListWord> Words { get; set; } = [];
 
-    public List<GoodsListWord> WordHits { get; set; } = [];
+    // public List<GoodsListWord> WordHits { get; set; } = [];
     public bool IsHsCodeBlacklisted { get; set; }
 }
