@@ -9,14 +9,22 @@ public class BlacklistService {
     private static readonly char[] separatorChars = [' ', ',', ';', '[', ']', '{', '}'];
     private static readonly object lockObject = new();
 
-    public OutputDto Check(BlacklistDto blacklistDto) {
+    public OutputDto Check(InputDto inputDto) {
 
-        allowedDifference = blacklistDto.AllowedDifference;
+        allowedDifference = inputDto.AllowedDifference;
 
-        IEnumerable<Goods> goodsList = blacklistDto.Goods;
-        IEnumerable<BlacklistEntry> blacklistEntries = blacklistDto.Blacklist;
+        IEnumerable<Goods> goodsList = inputDto.Goods;
+        IEnumerable<BlacklistEntry> blacklistEntries = inputDto.Blacklist;
         ConcurrentBag<OutputEntry> outputList = [];
-        IEnumerable<string> exceptWords = blacklistDto.ExceptWords;
+        IEnumerable<string> exceptWords = inputDto.ExceptWords;
+        IEnumerable<string> blacklistedHsCodes = inputDto.BlacklistedHsCodes;
+
+        Parallel.ForEach(goodsList, goods => {
+            if (blacklistedHsCodes
+                .Contains(goods.HsCode, StringComparer.InvariantCultureIgnoreCase)) {
+                goods.IsHsCodeBlacklisted = true;
+            }
+        });
 
         // split blacklist entries into words
         Parallel.ForEach(blacklistEntries
@@ -26,20 +34,20 @@ public class BlacklistService {
             blacklistEntry => {
                 blacklistEntry.Words = blacklistEntry.Text
                     .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
-                    .Except(exceptWords);
+                    .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase);
             });
 
         // split goods title entries into words
-        Parallel.ForEach(goodsList, goods => {
+        Parallel.ForEach(goodsList.Where(g => !g.IsHsCodeBlacklisted), goods => {
             var goodsTitleWords = goods.Title
                 .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
-                .Except(exceptWords);
+                .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase);
 
             goods.Words = [.. goodsTitleWords];
 
         });
 
-        Parallel.ForEach(goodsList, goods => {
+        Parallel.ForEach(goodsList.Where(g => !g.IsHsCodeBlacklisted), goods => {
 
             var blacklistAnyWordHits = blacklistEntries
                 .AsParallel()
@@ -59,9 +67,9 @@ public class BlacklistService {
                     .ToList();
 
             foreach (var blacklistEntry in blacklistExactHits) {
-                goods.WordHits.Add(new() { 
-                    Precision = 1, 
-                    Word = blacklistEntry.Text 
+                goods.WordHits.Add(new() {
+                    Precision = 1,
+                    Word = blacklistEntry.Text
                 });
             }
 
@@ -86,6 +94,10 @@ public class BlacklistService {
 
         foreach (var item in list) {
             outputDto.Data.Add(item.Goods?.Id ?? string.Empty, item);
+        }
+
+        foreach (Goods goods in goodsList.Where(g => g.IsHsCodeBlacklisted)) {
+            outputDto.Data.Add(goods.Id, new() { Goods = goods });
         }
 
         return outputDto;

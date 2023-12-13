@@ -10,7 +10,7 @@ namespace HSProject.Controllers;
 public class BlacklistController(BlacklistService blacklistService) : ControllerBase {
 
     [HttpPost]
-    public IActionResult Check([FromBody] BlacklistDto blacklistDto) {
+    public IActionResult Check([FromBody] InputDto blacklistDto) {
 
         var outputDto = blacklistService.Check(blacklistDto);
 
