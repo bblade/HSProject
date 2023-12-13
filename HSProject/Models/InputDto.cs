@@ -6,6 +6,7 @@ public class InputDto {
     public List<Goods> Goods { get; set; } = [];
     public List<BlacklistEntry> Blacklist { get; set; } = [];
     public IEnumerable<string> ExceptWords { get; set; } = [];
+    public IEnumerable<string> WhitelistTags { get; set; } = [];
     public IEnumerable<HsCode> HsCodes { get; set; } = [];
     public decimal DefaultPriceLimit { get; set; }
 

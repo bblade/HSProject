@@ -18,6 +18,7 @@ public class BlacklistService {
         IEnumerable<string> exceptWords = inputDto.ExceptWords;
         IEnumerable<HsCode> hsCodes = inputDto.HsCodes;
         decimal defaultPriceLimit = inputDto.DefaultPriceLimit;
+        IEnumerable<string> whitelistTags = inputDto.WhitelistTags;
 
         Parallel.ForEach(blacklistEntries
             .Where(b =>
@@ -59,6 +60,7 @@ public class BlacklistService {
                 var goodsTitleWords = goods.Title
                     .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
                     .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase)
+                    .Except(whitelistTags, StringComparer.InvariantCultureIgnoreCase)
                     .Select(w => new GoodsListWord() {
                         Word = w
                     });
