@@ -10,12 +10,9 @@ namespace HSProject.Controllers;
 public class ManifestController(ManifestImporterService manifestImporterService) : ControllerBase {
 
     [HttpPost]
-    public IActionResult Import(ManifestImportDto manifestImportDto) {
-        var text = manifestImporterService.Import(manifestImportDto.Path);
-        return new ContentResult() {
-            Content = text,
-            ContentType = "text/plain;charset=utf-8",
-            StatusCode = 200
-        };
+    public async Task<IActionResult> Import(ManifestImportDto manifestImportDto) {
+        ManifestImportOutputDto output = await manifestImporterService
+            .Import(manifestImportDto.Path, manifestImportDto.ManifestId);
+        return Ok(output);
     }
 }

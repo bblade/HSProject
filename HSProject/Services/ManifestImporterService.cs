@@ -1,27 +1,115 @@
 ﻿using ClosedXML.Excel;
 
+using HSProject.Models;
+
 using System.Text;
 
 namespace HSProject.Services;
 public class ManifestImporterService {
-    public string Import(string path) {
 
-        using var book = new XLWorkbook(path);
+    const string goodsFilename = @"goods.csv";
+    const string parcelsFilename = @"parcels.csv";
+    const string manifestFilename = @"manifest.csv";
 
-        var sheet = book.Worksheet(1);
+    public async Task<ManifestImportOutputDto> Import(string path, string manifestId) {
 
-        StringBuilder sb = new();
+        using XLWorkbook book = new(path);
+        IXLWorksheet sheet = book.Worksheet(1);
+        int lastRow = sheet.Rows().Last().RowNumber();
 
+        var parcelBarcodes = sheet
+            .Range($"C2:C{lastRow}")
+            .Cells()
+            .Select(c => c.Value.GetText())
+            .Distinct()
+            .ToList();
 
-        foreach (var row in sheet.Rows()) {
-            for (int i = 1; i <= 43; i++) {
-                sb.Append(sheet.Cell(row.RowNumber(), i).Value);
-                sb.Append(',');
+        StringBuilder parcelsBuilder = new();
+
+        foreach (string barcode in parcelBarcodes) {
+            IXLRow? parcelRow = sheet.Rows()
+                .Where(r => r.Cell(3).Value.GetText() == barcode)
+                .FirstOrDefault();
+
+            if (parcelRow == null) {
+                break;
             }
-            sb.Length--;
-            sb.Append('\n');
+
+            string parcelId = "DD041-" + Guid.NewGuid().ToString().ToUpperInvariant();
+
+            parcelsBuilder.Append(parcelId);
+            parcelsBuilder.Append(',');
+            parcelsBuilder.Append(manifestId);
+            parcelsBuilder.Append(',');
+            parcelsBuilder.Append(barcode);
+            parcelsBuilder.Append(',');
+
+            for (int i = 4; i <= 21; i++) {
+                parcelsBuilder.Append(parcelRow.Cell(i).Value.ToString());
+                parcelsBuilder.Append(',');
+            }
+
+            for (int i = 29; i <= 40; i++) {
+                parcelsBuilder.Append(parcelRow.Cell(i).Value.ToString());
+                parcelsBuilder.Append(',');
+            }
+
+            parcelsBuilder.Append(parcelRow.Cell(42).Value.ToString());
+            parcelsBuilder.Append(',');
+            parcelsBuilder.Append(parcelRow.Cell(43).Value.ToString());
+            parcelsBuilder.AppendLine();
+
+            foreach (var row in sheet.Rows().Where(r => r.Cell(3).Value.GetText() == barcode)) {
+                row.Cell(45).SetValue(manifestId);
+                row.Cell(46).SetValue(parcelId);
+            }
         }
 
-        return sb.ToString();
+        sheet.Cell(1, 45).SetValue("manifest_id");
+        sheet.Cell(1, 46).SetValue("parcel_id");
+
+        StringBuilder goodsBuilder = new();
+
+        foreach (var row in sheet.Rows()) {
+            if (row.RowNumber() == 1) {
+                continue;
+            }
+
+            for (int i = 22; i <= 28; i++) {
+                goodsBuilder.Append(row.Cell(i).Value.ToString());
+                goodsBuilder.Append(',');
+            }
+            for (int i = 44; i <= 46; i++) {
+                goodsBuilder.Append(row.Cell(i).Value.ToString());
+                goodsBuilder.Append(',');
+            }
+            goodsBuilder.AppendLine();
+        }
+
+        StringBuilder manifestBuilder = new();
+
+        manifestBuilder.Append(manifestId);
+        manifestBuilder.Append(',');
+        manifestBuilder.Append(sheet.Cell(2, 1).Value.ToString());
+        manifestBuilder.Append(',');
+        manifestBuilder.Append(sheet.Cell(2, 2).Value.ToString());
+        manifestBuilder.Append(',');
+        manifestBuilder.Append(sheet.Cell(2, 41).Value.ToString());
+
+        string? folderPath = Path.GetDirectoryName(path);
+
+        if (string.IsNullOrWhiteSpace(folderPath)) {
+            folderPath = Path.GetTempPath();
+        }
+
+        string goodsPath = Path.Combine(folderPath, goodsFilename);
+        string parcelsPath = Path.Combine(folderPath, parcelsFilename);
+        string manifestPath = Path.Combine(folderPath, manifestFilename);
+
+        await File.WriteAllTextAsync(goodsPath, goodsBuilder.ToString());
+        await File.WriteAllTextAsync(parcelsPath, parcelsBuilder.ToString());
+        await File.WriteAllTextAsync(manifestPath, manifestBuilder.ToString());
+
+        return new ManifestImportOutputDto(goodsPath, parcelsPath, manifestPath);
     }
 }
