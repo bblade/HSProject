@@ -5,9 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HSProject.Controllers;
 
-[ApiController]
-[Route("api/import")]
-public class ManifestController(ManifestImporterService manifestImporterService) : ControllerBase {
+[ApiController, Route("api/import")]
+public class ManifestImportController(ManifestImporterService manifestImporterService) : ControllerBase {
 
     [HttpPost]
     public async Task<IActionResult> Import(ManifestImportDto manifestImportDto) {
