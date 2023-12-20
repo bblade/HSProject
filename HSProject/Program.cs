@@ -13,7 +13,8 @@ builder.Services.AddControllers().AddJsonOptions(options => {
 });
 
 builder.Services.AddScoped<BlacklistService>()
-                .AddScoped<ManifestImporterService>();
+                .AddScoped<ManifestImporterService>()
+                .AddScoped<ManifestExporterService>();
 
 WebApplication app = builder.Build();
 
