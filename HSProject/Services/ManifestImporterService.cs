@@ -45,18 +45,18 @@ public class ManifestImporterService {
             parcelsBuilder.Append(',');
 
             for (int i = 4; i <= 21; i++) {
-                parcelsBuilder.Append(parcelRow.Cell(i).Value.ToString());
+                parcelsBuilder.Append(parcelRow.Cell(i).Value.ToCsv());
                 parcelsBuilder.Append(',');
             }
 
             for (int i = 29; i <= 40; i++) {
-                parcelsBuilder.Append(parcelRow.Cell(i).Value.ToString());
+                parcelsBuilder.Append(parcelRow.Cell(i).Value.ToCsv());
                 parcelsBuilder.Append(',');
             }
 
-            parcelsBuilder.Append(parcelRow.Cell(42).Value.ToString());
+            parcelsBuilder.Append(parcelRow.Cell(42).Value.ToCsv());
             parcelsBuilder.Append(',');
-            parcelsBuilder.Append(parcelRow.Cell(43).Value.ToString());
+            parcelsBuilder.Append(parcelRow.Cell(43).Value.ToCsv());
             parcelsBuilder.AppendLine();
 
             foreach (var row in sheet.Rows().Where(r => r.Cell(3).Value.GetText() == barcode)) {
@@ -76,11 +76,11 @@ public class ManifestImporterService {
             }
 
             for (int i = 22; i <= 28; i++) {
-                goodsBuilder.Append(row.Cell(i).Value.ToString());
+                goodsBuilder.Append(row.Cell(i).Value.ToCsv());
                 goodsBuilder.Append(',');
             }
             for (int i = 44; i <= 46; i++) {
-                goodsBuilder.Append(row.Cell(i).Value.ToString());
+                goodsBuilder.Append(row.Cell(i).Value.ToCsv());
                 goodsBuilder.Append(',');
             }
             goodsBuilder.AppendLine();
@@ -90,11 +90,11 @@ public class ManifestImporterService {
 
         manifestBuilder.Append(manifestId);
         manifestBuilder.Append(',');
-        manifestBuilder.Append(sheet.Cell(2, 1).Value.ToString());
+        manifestBuilder.Append(sheet.Cell(2, 1).Value.ToCsv());
         manifestBuilder.Append(',');
-        manifestBuilder.Append(sheet.Cell(2, 2).Value.ToString());
+        manifestBuilder.Append(sheet.Cell(2, 2).Value.ToCsv());
         manifestBuilder.Append(',');
-        manifestBuilder.Append(sheet.Cell(2, 41).Value.ToString());
+        manifestBuilder.Append(sheet.Cell(2, 41).Value.ToCsv());
 
         string? folderPath = Path.GetDirectoryName(path);
 
