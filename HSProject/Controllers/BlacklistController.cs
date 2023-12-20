@@ -12,7 +12,6 @@ public class BlacklistController(BlacklistService blacklistService) : Controller
     public IActionResult Check([FromBody] InputDto blacklistDto) {
 
         OutputDto outputDto = blacklistService.Check(blacklistDto);
-        outputDto.Success = true;
 
         return Ok(outputDto);
     }
