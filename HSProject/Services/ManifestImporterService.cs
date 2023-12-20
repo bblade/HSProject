@@ -1,11 +1,14 @@
 ﻿using ClosedXML.Excel;
 
+using HSProject.ErrorHandling;
 using HSProject.Models;
+
+using Microsoft.Extensions.Logging;
 
 using System.Text;
 
 namespace HSProject.Services;
-public class ManifestImporterService {
+public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
 
     const string goodsFilename = @"goods.csv";
     const string parcelsFilename = @"parcels.csv";
@@ -15,6 +18,14 @@ public class ManifestImporterService {
 
         using XLWorkbook book = new(path);
         IXLWorksheet sheet = book.Worksheet(1);
+
+
+        if (sheet.Columns().Count() < 43) {
+            logger.LogDebug(sheet.Columns().Count().ToString());
+            throw new ManifestInvalidException();
+        }
+
+
         int lastRow = sheet.Rows().Last().RowNumber();
 
         var parcelBarcodes = sheet

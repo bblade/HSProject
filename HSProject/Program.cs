@@ -1,3 +1,4 @@
+using HSProject.ErrorHandling;
 using HSProject.Services;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -17,6 +18,8 @@ builder.Services.AddScoped<BlacklistService>()
                 .AddScoped<ManifestExporterService>();
 
 WebApplication app = builder.Build();
+
+app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.MapControllers();
 

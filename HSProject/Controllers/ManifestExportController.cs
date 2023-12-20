@@ -16,6 +16,8 @@ public class ManifestExportController(ManifestExporterService manifestExporterSe
 
         FileStream fileStream = new(path, FileMode.Open, FileAccess.Read);
 
-        return File(fileStream, "application/binary", Path.GetFileName(path));
+        return File(
+            fileStream, 
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }
 }
