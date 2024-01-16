@@ -240,4 +240,24 @@ public class BlacklistService {
 
         return true;
     }
+
+    //static bool IsPhraseHit(Goods goods, string phrase) {
+
+    //    foreach (GoodsListWord word in goods.Words) {
+
+
+    //            double difference = Comparer
+    //                .CalculateLevenshteinDistance(word.Word, phrase);
+
+    //            if (difference <= allowedDifference) {
+    //                double precision = 1 - difference;
+    //                if (word.Precision < precision) {
+    //                    word.Precision = precision;
+    //                }
+    //                return true;
+    //            }
+            
+    //    }
+    //    return false;
+    //}
 }
