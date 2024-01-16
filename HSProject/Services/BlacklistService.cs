@@ -1,4 +1,6 @@
-﻿using HSProject.Models;
+﻿using DocumentFormat.OpenXml.Drawing;
+
+using HSProject.Models;
 
 using System.Collections.Concurrent;
 
@@ -71,12 +73,12 @@ public class BlacklistService {
                 var blacklistAnyWordHits = blacklistEntries
                     .AsParallel()
                     .Where(entry => entry.ComparisonType.Equals("AnyWord"))
-                    .Where(b => IsAnyWordBlacklisted(goods, b)).ToList();
+                    .Where(b => IsAnyWordHit(goods, b)).ToList();
 
                 var blacklistAllWordsHits = blacklistEntries
                     .AsParallel()
                     .Where(entry => entry.ComparisonType.Equals("AllWords"))
-                    .Where(b => IsAllWordsBlacklisted(goods, b)).ToList();
+                    .Where(b => IsAllWordsHit(goods, b)).ToList();
 
                 var blacklistExactHits = blacklistEntries
                     .AsParallel()
@@ -127,12 +129,76 @@ public class BlacklistService {
         return outputDto;
     }
 
+    public IEnumerable<Goods> CheckV2(InputDto inputDto) {
 
+        allowedDifference = inputDto.AllowedDifference;
 
-    static bool IsAnyWordBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
+        IEnumerable<Goods> goodsList = inputDto.Goods;
+        IEnumerable<string> exceptWords = inputDto.ExceptWords;
+        IEnumerable<HsCode> hsCodes = inputDto.HsCodes;
+        decimal defaultPriceLimit = inputDto.DefaultPriceLimit;
+        IEnumerable<string> whitelistTags = inputDto.WhitelistTags;
+
+        Parallel.ForEach(hsCodes, hsCode =>
+            Parallel.ForEach(hsCode.Synonyms
+                .Where(b =>
+                    b.ComparisonType.Equals("AnyWord") ||
+                    b.ComparisonType.Equals("AllWords")),
+                synonym => {
+                    synonym.Words = synonym.Label
+                        .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                        .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase);
+                })
+        );
+
+        foreach (Goods goods in goodsList) {
+
+            HsCode? match = hsCodes.FirstOrDefault(hsCode =>
+                hsCode.DirectMatch.Any(direct =>
+                    goods.Title.Equals(direct.Label, StringComparison.InvariantCultureIgnoreCase)
+                )
+            );
+
+            if (match != null) {
+                goods.HsCode = match.Code;
+                continue;
+            }
+
+            var goodsTitleWords = goods.Title
+                .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase)
+                .Except(whitelistTags, StringComparer.InvariantCultureIgnoreCase)
+                .Select(w => new GoodsListWord() {
+                    Word = w
+                });
+
+            goods.Words = [.. goodsTitleWords];
+
+            foreach (HsCode loopHsCode in hsCodes) {
+                var synonymAnyWordHits = loopHsCode.Synonyms
+                    .AsParallel()
+                    .Where(entry => entry.ComparisonType.Equals("AnyWord"))
+                    .Where(b => IsAnyWordHit(goods, b)).ToList();
+
+                var synonymAllWordHits = loopHsCode.Synonyms
+                    .AsParallel()
+                    .Where(entry => entry.ComparisonType.Equals("AllWords"))
+                    .Where(b => IsAllWordsHit(goods, b)).ToList();
+
+                if (synonymAnyWordHits.Count != 0 || synonymAllWordHits.Count != 0) {
+                    goods.HsCode = loopHsCode.Code;
+                    break;
+                }
+            }
+        }
+
+        return goodsList;
+    }
+
+    static bool IsAnyWordHit(Goods goods, ISynonym synonym) {
 
         foreach (GoodsListWord word in goods.Words) {
-            foreach (string blacklistWord in blacklistEntry.Words) {
+            foreach (string blacklistWord in synonym.Words) {
 
                 double difference = Comparer
                     .CalculateLevenshteinDistance(word.Word, blacklistWord);
@@ -149,9 +215,9 @@ public class BlacklistService {
         return false;
     }
 
-    static bool IsAllWordsBlacklisted(Goods goods, BlacklistEntry blacklistEntry) {
+    static bool IsAllWordsHit(Goods goods, ISynonym synonym) {
 
-        foreach (string blacklistWord in blacklistEntry.Words) {
+        foreach (string blacklistWord in synonym.Words) {
             bool matchFound = false;
 
             foreach (GoodsListWord word in goods.Words) {

@@ -16,6 +16,14 @@ public class BlacklistController(BlacklistService blacklistService) : Controller
         return Ok(outputDto);
     }
 
+    [HttpPost("v2")]
+    public IActionResult CheckV2([FromBody] InputDto blacklistDto) {
+
+        var output = blacklistService.CheckV2(blacklistDto);
+
+        return Ok(output);
+    }
+
     [HttpGet]
     public IActionResult Compare([FromQuery] string text1, string text2) {
         var result = Comparer.CalculateLevenshteinDistance(text1, text2);
