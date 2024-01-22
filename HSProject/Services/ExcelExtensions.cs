@@ -2,14 +2,14 @@
 
 using System.Text;
 
-namespace HSProject.Services; 
+namespace HSProject.Services;
 public static class ExcelExtensions {
     public static string ToCsv(this XLCellValue value) {
 
         string str = value.ToString();
 
-        bool mustQuote = 
-            str.Contains(',') || 
+        bool mustQuote =
+            str.Contains(',') ||
             str.Contains('"') ||
             str.Contains('\r') ||
             str.Contains('\n');
@@ -19,8 +19,9 @@ public static class ExcelExtensions {
             sb.Append('"');
             foreach (char nextChar in str) {
                 sb.Append(nextChar);
-                if (nextChar == '"')
+                if (nextChar == '"') {
                     sb.Append('"');
+                }
             }
             sb.Append('"');
             return sb.ToString();
