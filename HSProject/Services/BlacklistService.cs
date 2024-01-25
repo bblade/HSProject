@@ -159,9 +159,7 @@ public class BlacklistService {
 
             foreach (var hsCode in hsCodes.Where(hs => hs.DirectMatch.Count != 0)) {
                 foreach (var directMatch in hsCode.DirectMatch) {
-                    if (goods.Title == "Socks") {
-                        Console.WriteLine("Socks");
-                    }
+
                     if (directMatch.Label.Equals(goods.Title, StringComparison.InvariantCultureIgnoreCase)) {
                         goods.Matches.Add(new Match() {
                             HsCode = hsCode.Code,
