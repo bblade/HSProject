@@ -3,8 +3,6 @@
 using HSProject.ErrorHandling;
 using HSProject.Models;
 
-using Microsoft.Extensions.Logging;
-
 using System.Text;
 
 namespace HSProject.Services;
@@ -31,15 +29,15 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         var parcelBarcodes = sheet
             .Range($"C2:C{lastRow}")
             .Cells()
-            .Select(c => c.Value.GetText())
+            .Select(c => c.Value.ToString())
             .Distinct()
             .ToList();
 
         StringBuilder parcelsBuilder = new();
 
-        foreach (string barcode in parcelBarcodes) {
+        foreach (string barcode in parcelBarcodes.Where(b => !string.IsNullOrWhiteSpace(b))) {
             IXLRow? parcelRow = sheet.Rows()
-                .Where(r => r.Cell(3).Value.GetText() == barcode)
+                .Where(r => r.Cell(3).Value.ToString() == barcode)
                 .FirstOrDefault();
 
             if (parcelRow == null) {
@@ -70,7 +68,7 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
             parcelsBuilder.Append(parcelRow.Cell(43).Value.ToCsv());
             parcelsBuilder.AppendLine();
 
-            foreach (var row in sheet.Rows().Where(r => r.Cell(3).Value.GetText() == barcode)) {
+            foreach (var row in sheet.Rows().Where(r => r.Cell(3).Value.ToString() == barcode)) {
                 row.Cell(45).SetValue(manifestId);
                 row.Cell(46).SetValue(parcelId);
             }
@@ -84,6 +82,10 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         foreach (var row in sheet.Rows()) {
             if (row.RowNumber() == 1) {
                 continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.Cell(3).Value.ToString())) {
+                break;
             }
 
             for (int i = 22; i <= 28; i++) {
