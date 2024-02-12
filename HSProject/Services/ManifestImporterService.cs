@@ -92,7 +92,16 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
                 goodsBuilder.Append(row.Cell(i).Value.ToCsv());
                 goodsBuilder.Append(',');
             }
-            for (int i = 46; i <= 48; i++) {
+
+            for (int i = 44; i < 46; i++) {
+                string value = row.Cell(i).Value.ToString();
+                if (value.Length >= 4 || i == 46) {
+                    goodsBuilder.Append(value);
+                    goodsBuilder.Append(',');
+                }
+            }
+
+            for (int i = 47; i <= 48; i++) {
                 goodsBuilder.Append(row.Cell(i).Value.ToCsv());
                 goodsBuilder.Append(',');
             }
