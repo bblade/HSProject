@@ -69,13 +69,13 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
             parcelsBuilder.AppendLine();
 
             foreach (var row in sheet.Rows().Where(r => r.Cell(3).Value.ToString() == barcode)) {
-                row.Cell(45).SetValue(manifestId);
-                row.Cell(46).SetValue(parcelId);
+                row.Cell(47).SetValue(manifestId);
+                row.Cell(48).SetValue(parcelId);
             }
         }
 
-        sheet.Cell(1, 45).SetValue("manifest_id");
-        sheet.Cell(1, 46).SetValue("parcel_id");
+        sheet.Cell(1, 47).SetValue("manifest_id");
+        sheet.Cell(1, 48).SetValue("parcel_id");
 
         StringBuilder goodsBuilder = new();
 
@@ -92,7 +92,7 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
                 goodsBuilder.Append(row.Cell(i).Value.ToCsv());
                 goodsBuilder.Append(',');
             }
-            for (int i = 44; i <= 46; i++) {
+            for (int i = 46; i <= 48; i++) {
                 goodsBuilder.Append(row.Cell(i).Value.ToCsv());
                 goodsBuilder.Append(',');
             }
