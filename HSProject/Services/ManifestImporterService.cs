@@ -96,12 +96,13 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
          * 41 (AO) Unused?
          * 44 (AR) Unused?
          */
-        manifestBuilder.Append(sheet.Cell(2, 1).Value.ToCsv());
-        manifestBuilder.Append(',');
-        manifestBuilder.Append(sheet.Cell(2, 2).Value.ToCsv());
-        manifestBuilder.Append(',');
-        manifestBuilder.Append(sheet.Cell(2, 41).Value.ToCsv());
-        manifestBuilder.Append(',');
+        manifestBuilder
+            .Append(sheet.Cell(2, 1).Value.ToCsv())
+            .Append(',')
+            .Append(sheet.Cell(2, 2).Value.ToCsv())
+            .Append(',')
+            .Append(sheet.Cell(2, 41).Value.ToCsv())
+            .Append(',');
 
         string value44;
         if (format == "f44") {
@@ -151,8 +152,9 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
          * 27—28 (AA—AB) Value
          */
         for (int i = 22; i <= 28; i++) {
-            goodsBuilder.Append(row.Cell(i).Value.ToCsv());
-            goodsBuilder.Append(',');
+            goodsBuilder
+                .Append(row.Cell(i).Value.ToCsv())
+                .Append(',');
         }
 
         string hsCode;
@@ -163,11 +165,16 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         }
 
         goodsBuilder.Append(hsCode);
-        goodsBuilder.Append(',');
 
+        /*
+         * Manifest Id
+         * Parcel Id
+         */
         for (int i = 47; i <= 48; i++) {
-            goodsBuilder.Append(row.Cell(i).Value.ToCsv());
-            goodsBuilder.Append(',');
+            goodsBuilder
+                .Append(',')
+                .Append(row.Cell(i).Value.ToCsv());
+            
         }
         goodsBuilder.AppendLine();
     }
@@ -180,7 +187,8 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         }
 
         IXLRow? parcelRow = sheet.Rows()
-                .Where(r => r.Cell(3).Value.ToString() == barcode)
+                .Where(r => 
+                    r.Cell(3).Value.ToString() == barcode)
                 .FirstOrDefault();
 
         if (parcelRow == null) {
@@ -189,12 +197,13 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
 
         string parcelId = "DD041-" + Guid.NewGuid().ToString().ToUpperInvariant();
 
-        parcelsBuilder.Append(parcelId);
-        parcelsBuilder.Append(',');
-        parcelsBuilder.Append(manifestId);
-        parcelsBuilder.Append(',');
-        parcelsBuilder.Append(barcode);
-        parcelsBuilder.Append(',');
+        parcelsBuilder
+            .Append(parcelId)
+            .Append(',')
+            .Append(manifestId)
+            .Append(',')
+            .Append(barcode)
+            .Append(',');
 
         /* 
          * 4 (D) Sender Name
@@ -206,8 +215,9 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
          * 20—21 (T—U) COD
          */
         for (int i = 4; i <= 21; i++) {
-            parcelsBuilder.Append(parcelRow.Cell(i).Value.ToCsv());
-            parcelsBuilder.Append(',');
+            parcelsBuilder
+                .Append(parcelRow.Cell(i).Value.ToCsv())
+                .Append(',');
         }
 
         /* 
@@ -217,18 +227,20 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
          * 32 — 40 (AF—AN) Sender Address
          */
         for (int i = 29; i <= 40; i++) {
-            parcelsBuilder.Append(parcelRow.Cell(i).Value.ToCsv());
-            parcelsBuilder.Append(',');
+            parcelsBuilder
+                .Append(parcelRow.Cell(i).Value.ToCsv())
+                .Append(',');
         }
 
         /* 
          * 42 (AP) Delivery Lot
          * 43 (AQ) Delivery Code
          */
-        parcelsBuilder.Append(parcelRow.Cell(42).Value.ToCsv());
-        parcelsBuilder.Append(',');
-        parcelsBuilder.Append(parcelRow.Cell(43).Value.ToCsv());
-        parcelsBuilder.Append(',');
+        parcelsBuilder
+            .Append(parcelRow.Cell(42).Value.ToCsv())
+            .Append(',')
+            .Append(parcelRow.Cell(43).Value.ToCsv())
+            .Append(',');
 
         // 45 (AS) No returns
         string value45;
@@ -239,8 +251,9 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
             value45 = parcelRow.Cell(45).Value.ToCsv();
         }
 
-        parcelsBuilder.Append(value45);
-        parcelsBuilder.AppendLine();
+        parcelsBuilder
+            .Append(value45)
+            .AppendLine();
 
         foreach (var row in sheet.Rows().Where(r => r.Cell(3).Value.ToString() == barcode)) {
             row.Cell(47).SetValue(manifestId);
