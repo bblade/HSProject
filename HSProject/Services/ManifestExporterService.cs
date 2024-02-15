@@ -1,14 +1,28 @@
 ﻿using ClosedXML.Excel;
+
 namespace HSProject.Services;
 public class ManifestExporterService {
 
-    public void Export(string path) {
+    public void ExportF46(string path, string format) {
+
         using XLWorkbook book = new(path);
         IXLWorksheet sheet = book.Worksheet(1);
+
+        if (format == "f44" || format == "f46") {
+            AddHeadersF46(sheet, format);
+        } else {
+            throw new NotImplementedException();
+        }
+
+        sheet.Columns().AdjustToContents();
+
+        book.Save();
+    }
+
+    private static void AddHeadersF46(IXLWorksheet sheet, string format) {
         sheet.Row(1).InsertRowsAbove(1);
         sheet.Cell(1, 1).Value = "client_name";
         sheet.Cell(1, 2).Value = "agreement_no";
-
         sheet.Cell(1, 3).Value = "barcode";
 
         sheet.Cell(1, 4).Value = "sender_name";
@@ -21,7 +35,7 @@ public class ManifestExporterService {
         sheet.Cell(1, 9).Value = "receiver_city";
         sheet.Cell(1, 10).Value = "receiver_street";
         sheet.Cell(1, 11).Value = "receiver_house";
-        sheet.Cell(1, 12).Value = "receiver_building";    
+        sheet.Cell(1, 12).Value = "receiver_building";
         sheet.Cell(1, 13).Value = "receiver_apartment";
         sheet.Cell(1, 14).Value = "receiver_mobile_phone_number";
 
@@ -60,10 +74,14 @@ public class ManifestExporterService {
         sheet.Cell(1, 41).Value = "client_id";
         sheet.Cell(1, 42).Value = "no_of_delivery_lot";
         sheet.Cell(1, 43).Value = "type_delivery_code";
-        sheet.Cell(1, 44).Value = "hs_code";
 
-        sheet.Columns().AdjustToContents();
 
-        book.Save();
+        if (format == "f44") {
+            sheet.Cell(1, 44).Value = "hs_code";
+        } else if (format == "f46") {
+            sheet.Cell(1, 44).Value = "*";
+            sheet.Cell(1, 45).Value = "no_returns";
+            sheet.Cell(1, 46).Value = "hs_code";
+        }
     }
 }

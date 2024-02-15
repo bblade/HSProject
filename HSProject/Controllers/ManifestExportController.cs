@@ -12,7 +12,8 @@ public class ManifestExportController(ManifestExporterService manifestExporterSe
     public IActionResult Index(ExportDto exportDto) {
 
         string path = exportDto.Path;
-        manifestExporterService.Export(path);
+        string format = exportDto.Format;
+        manifestExporterService.ExportF46(path, format);
 
         FileStream fileStream = new(path, FileMode.Open, FileAccess.Read);
 
