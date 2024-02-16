@@ -11,7 +11,7 @@ public class ManifestExporterService {
         if (format == "f44" || format == "f46") {
             AddHeadersF46(sheet, format);
         } else {
-            throw new NotImplementedException();
+            AddHeadersF17(sheet);
         }
 
         sheet.Columns().AdjustToContents();
@@ -83,5 +83,28 @@ public class ManifestExporterService {
             sheet.Cell(1, 45).Value = "no_returns";
             sheet.Cell(1, 46).Value = "hs_code";
         }
+    }
+
+
+    private static void AddHeadersF17(IXLWorksheet sheet) {
+        sheet.Row(1).InsertRowsAbove(1);
+        sheet.Cell(1, 1).Value = "MAWB Number";
+        sheet.Cell(1, 2).Value = "HAWB Number";
+        sheet.Cell(1, 3).Value = "Expected Arrival Date";
+        sheet.Cell(1, 4).Value = "Currency";
+        sheet.Cell(1, 5).Value = "Shipper Name";
+        sheet.Cell(1, 6).Value = "Consignee Family Name";
+        sheet.Cell(1, 7).Value = "Consignee Name";
+        sheet.Cell(1, 8).Value = "Consignee Middle Name";
+        sheet.Cell(1, 9).Value = "Consignee Full Address";
+        sheet.Cell(1, 10).Value = "Consignee City";
+        sheet.Cell(1, 11).Value = "Consignee State";
+        sheet.Cell(1, 12).Value = "Item Description (EN)";
+
+        sheet.Cell(1, 14).Value = "Item Description";
+        sheet.Cell(1, 15).Value = "Number of pieces in Item";
+        sheet.Cell(1, 16).Value = "Item weight";
+        sheet.Cell(1, 17).Value = "Item price";
+        
     }
 }

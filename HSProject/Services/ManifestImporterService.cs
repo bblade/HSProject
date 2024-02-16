@@ -1,8 +1,13 @@
 ﻿using ClosedXML.Excel;
 
+using DocumentFormat.OpenXml.Spreadsheet;
+
 using HSProject.ErrorHandling;
 using HSProject.Models;
 
+using Microsoft.Extensions.Primitives;
+
+using System.Globalization;
 using System.Text;
 
 namespace HSProject.Services;
@@ -13,6 +18,7 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
     const string manifestFilename = @"manifest.csv";
 
     string format = "error";
+    string? manifestId;
 
     StringBuilder? parcelsBuilder;
     StringBuilder? goodsBuilder;
@@ -23,6 +29,7 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         parcelsBuilder = new();
         goodsBuilder = new();
         manifestBuilder = new();
+        this.manifestId = manifestId;
 
         using XLWorkbook book = new(path);
         IXLWorksheet sheet = book.Worksheet(1);
@@ -35,9 +42,9 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         }
 
         if (format != "f17") {
-            ImportF46(sheet, manifestId);
+            ImportF46(sheet);
         } else {
-            throw new NotImplementedException();
+            ImportF17(sheet);
         }
 
         string? folderPath = Path.GetDirectoryName(path);
@@ -55,15 +62,19 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         await File.WriteAllTextAsync(goodsPath, goodsBuilder.ToString());
         await File.WriteAllTextAsync(parcelsPath, parcelsBuilder.ToString());
         await File.WriteAllTextAsync(manifestPath, manifestBuilder.ToString());
-        
+
         logger.LogInformation("Files written ok");
 
         return new ManifestImportOutputDto(format, goodsPath, parcelsPath, manifestPath);
     }
 
-    private void ImportF46(IXLWorksheet sheet, string manifestId) {
+    private void ImportF46(IXLWorksheet sheet) {
 
         if (manifestBuilder == null) {
+            throw new Exception();
+        }
+
+        if (manifestId == null) {
             throw new Exception();
         }
 
@@ -77,14 +88,11 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
             .ToList();
 
         foreach (string barcode in parcelBarcodes.Where(b => !string.IsNullOrWhiteSpace(b))) {
-            ProcessParcel(barcode,sheet, manifestId);
+            ProcessParcelsF46(barcode, sheet);
         }
 
-        sheet.Cell(1, 47).SetValue("manifest_id");
-        sheet.Cell(1, 48).SetValue("parcel_id");
-
-        foreach (IXLRow? row in sheet.Rows()) {
-            ProcessGoods(row);
+        foreach (IXLRow? row in sheet.RowsUsed()) {
+            ProcessGoodsF46(row);
         }
 
         manifestBuilder.Append(manifestId);
@@ -110,11 +118,11 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         } else {
             value44 = sheet.Cell(2, 44).Value.ToCsv();
         }
-        manifestBuilder.Append(value44);        
+        manifestBuilder.Append(value44);
     }
 
     private string CheckFormat(IXLWorksheet sheet) {
-        int columns = sheet.ColumnsUsed().Count();
+        int columns = sheet.ColumnsUsed().Last().ColumnNumber();
         logger.LogInformation($"Detected {columns} columns");
         return columns switch {
             43 => "f44",
@@ -126,10 +134,14 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
         };
     }
 
-    private void ProcessGoods(IXLRow? row) {
+    private void ProcessGoodsF46(IXLRow? row) {
 
         if (row == null) {
             return;
+        }
+
+        if (manifestId == null) {
+            throw new Exception();
         }
 
         if (row.RowNumber() == 1) {
@@ -140,9 +152,7 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
             return;
         }
 
-        if (goodsBuilder == null) {
-            throw new Exception();
-        }
+        goodsBuilder ??= new();
 
         /*
          * 22 (V) No
@@ -164,30 +174,22 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
             hsCode = row.Cell(46).Value.ToCsv();
         }
 
-        goodsBuilder.Append(hsCode);
+        goodsBuilder
+            .Append(hsCode)
+            .Append(',')
+            .Append(manifestId)
+            .Append(',')
+            .Append(row.Cell(47).Value.ToCsv()) // parcel_id
+            .AppendLine();
 
-        /*
-         * Manifest Id
-         * Parcel Id
-         */
-        for (int i = 47; i <= 48; i++) {
-            goodsBuilder
-                .Append(',')
-                .Append(row.Cell(i).Value.ToCsv());
-            
-        }
-        goodsBuilder.AppendLine();
     }
 
-    private void ProcessParcel(string barcode, IXLWorksheet sheet, string manifestId) {
+    private void ProcessParcelsF46(string barcode, IXLWorksheet sheet) {
 
-        if (parcelsBuilder == null) {
-            logger.LogError("Parcels builder not initialized");
-            throw new Exception();
-        }
+        parcelsBuilder ??= new();
 
         IXLRow? parcelRow = sheet.Rows()
-                .Where(r => 
+                .Where(r =>
                     r.Cell(3).Value.ToString() == barcode)
                 .FirstOrDefault();
 
@@ -255,9 +257,160 @@ public class ManifestImporterService(ILogger<ManifestExporterService> logger) {
             .Append(value45)
             .AppendLine();
 
-        foreach (var row in sheet.Rows().Where(r => r.Cell(3).Value.ToString() == barcode)) {
-            row.Cell(47).SetValue(manifestId);
-            row.Cell(48).SetValue(parcelId);
+        foreach (var row in sheet.Rows()
+            .Where(r => r.Cell(3).Value.ToString() == barcode)) {
+
+            row.Cell(47).SetValue(parcelId);
         }
+    }
+
+    private void ImportF17(IXLWorksheet sheet) {
+
+        manifestBuilder ??= new();
+
+        if (manifestId == null) {
+            throw new Exception("Manifest Id is not set");
+        }
+
+        const int firstRow = 16;
+        int lastRow = sheet.RowsUsed().Last().RowNumber();
+
+        List<string> parcelBarcodes = sheet
+            .Range($"B{firstRow}:B{lastRow}")
+            .CellsUsed()
+            .Select(c => c.Value.ToString())
+            .Distinct()
+            .ToList();
+
+        foreach (string barcode in parcelBarcodes
+            .Where(b => !string.IsNullOrWhiteSpace(b))) {
+
+            ProcessParcelsF17(barcode, sheet);
+        }
+
+        sheet.Cell(1, 18).SetValue("parcel_id");
+
+        for (int i = firstRow; i <= lastRow; i++) {
+            ProcessGoodsF17(sheet.Row(i));
+        }
+
+        manifestBuilder.Append(manifestId);
+        manifestBuilder.Append(',');
+
+        /*
+         * 1 (A) MAWB Number
+         * 5 (E) Shipper Name
+         * 13 (M) Unused?
+         */
+        manifestBuilder
+            .Append(sheet.Cell(firstRow, 1).Value.ToCsv())
+            .Append(',')
+            .Append(sheet.Cell(firstRow, 5).Value.ToCsv())
+            .Append(',')
+            .Append(sheet.Cell(firstRow, 13).Value.ToCsv());
+
+    }
+
+    private void ProcessParcelsF17(string barcode, IXLWorksheet sheet) {
+
+        parcelsBuilder ??= new();
+
+        IXLRow? parcelRow = sheet.Rows()
+                .Where(r =>
+                    r.Cell(2).Value.ToString() == barcode)
+                .FirstOrDefault();
+
+        if (parcelRow == null) {
+            return;
+        }
+
+        string parcelId = "DD041-" + Guid.NewGuid().ToString().ToUpperInvariant();
+
+        parcelsBuilder
+            .Append(parcelId)
+            .Append(',')
+            .Append(manifestId)
+            .Append(',')
+            .Append(barcode)
+            .Append(',');
+
+        // 3 (C) Expected Arrival Date
+        try {
+            DateTime arrivalDate = parcelRow.Cell(3).Value.GetDateTime();
+            parcelsBuilder.Append(arrivalDate.ToShortDateString());
+        } catch {
+            parcelsBuilder.Append(parcelRow.Cell(3).Value.ToCsv());
+        }
+
+        /* 
+         * 4 (D) Currency
+         * 6 (F) Consignee Family Name
+         * 7 (G) Consignee Name
+         * 8 (H) Consignee Middle Name
+         * 9 (I) Full Address
+         * 10 (J) City
+         * 11 (K) State
+         */
+        parcelsBuilder
+            .Append(',')
+            .Append(parcelRow.Cell(4).Value.ToCsv());
+
+        for (int i = 6; i <= 11; i++) {
+            parcelsBuilder
+                .Append(',')
+                .Append(parcelRow.Cell(i).Value.ToCsv());
+        }
+
+        parcelsBuilder.AppendLine();
+
+        foreach (var row in sheet.Rows().Where(r => r.Cell(2).Value.ToString() == barcode)) {
+            row.Cell(18).SetValue(parcelId);
+        }
+    }
+
+    private void ProcessGoodsF17(IXLRow? row) {
+
+        if (row == null) {
+            return;
+        }
+
+        if (manifestId == null) {
+            throw new Exception();
+        }
+
+        if (row.RowNumber() == 1) {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(row.Cell(3).Value.ToString())) {
+            return;
+        }
+
+        goodsBuilder ??= new();
+
+        /*
+         * 12 (L) Item Description (EN)
+         * 14 (N) Item Description
+         * 15 (O) Quantity
+         * 16 (P) Weight
+         * 17 (Q) Value
+         */
+
+        goodsBuilder
+            .Append(row.Cell(12).Value.ToCsv())
+            .Append(',')
+            .Append(row.Cell(14).Value.ToCsv())
+            .Append(',')
+            .Append(row.Cell(15).Value.ToCsv())
+            .Append(',')
+            .Append(row.Cell(16).Value.ToString().ToCsv())
+            .Append(',')
+            .Append(row.Cell(17).Value.ToString().ToCsv())
+            .Append(',')
+            .Append(manifestId)
+            .Append(',')
+            .Append(row.Cell(18).Value.ToCsv()) // parcel_id
+            .AppendLine();
+
     }
 }
