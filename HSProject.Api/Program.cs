@@ -1,6 +1,8 @@
 using HSProject.Api.Authentication;
+using HSProject.Api.Options;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -9,11 +11,10 @@ using System.Text;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-string? customConfigFilePath = builder.Configuration["CustomConfigFilePath"];
 
-if (customConfigFilePath != null) {
-    builder.Configuration.AddJsonFile(customConfigFilePath, optional: true, reloadOnChange: true);
-}
+builder.Services
+    .Configure<FileMakerOptions>(
+        builder.Configuration.GetSection(nameof(FileMakerOptions)));
 
 builder.Services.AddControllers().AddJsonOptions(options => {
     options.JsonSerializerOptions.PropertyNamingPolicy = null;
@@ -52,6 +53,12 @@ builder.Services
 builder.Services.Configure<SecurityStampValidatorOptions>(options => {
     options.ValidationInterval = TimeSpan.Zero;
 });
+
+FileMakerOptions filemakerOptions = builder.Configuration
+            .GetSection(nameof(FileMakerOptions))
+            .Get<FileMakerOptions>() ?? new();
+
+builder.Services.AddHttpClient();
 
 WebApplication app = builder.Build();
 
