@@ -1,6 +1,6 @@
 ﻿using System.Security.Cryptography;
 
-namespace HSProject.Authentication;
+namespace HSProject.Api.Authentication;
 
 public static class PasswordGenerator {
     private const string ValidChars =

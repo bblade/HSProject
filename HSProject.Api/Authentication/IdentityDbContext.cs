@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-namespace HSProject.Authentication;
+namespace HSProject.Api.Authentication;
 public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) :
     IdentityDbContext<ApplicationUser>(options) {
     protected override void OnModelCreating(ModelBuilder builder) {

@@ -1,4 +1,4 @@
-﻿namespace HSProject.Authentication; 
+﻿namespace HSProject.Api.Authentication; 
 public class UserInfoDTO {
     public string? UserName { get; set; }
     public string? Email { get; set; }

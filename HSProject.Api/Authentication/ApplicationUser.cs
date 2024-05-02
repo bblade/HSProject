@@ -1,4 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
 
-namespace HSProject.Authentication;
+namespace HSProject.Api.Authentication;
 public class ApplicationUser : IdentityUser { }
