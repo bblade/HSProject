@@ -217,6 +217,91 @@ public class BlacklistService {
         return goodsList;
     }
 
+    public IEnumerable<GoodsSimple> CheckSimple(InputDtoSimple inputDto) {
+
+        allowedDifference = inputDto.AllowedDifference;
+
+        IEnumerable<GoodsSimple> goodsList = inputDto.Goods;
+        IEnumerable<string> exceptWords = inputDto.ExceptWords;
+        IEnumerable<HsCode> hsCodes = inputDto.HsCodes;
+        IEnumerable<string> whitelistTags = inputDto.WhitelistTags;
+
+        Parallel.ForEach(hsCodes, hsCode =>
+            Parallel.ForEach(hsCode.Synonyms
+                .Where(b =>
+                    b.ComparisonType.Equals("AnyWord") ||
+                    b.ComparisonType.Equals("AllWords")),
+                synonym => {
+                    synonym.Words = synonym.Label
+                        .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                        .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase)
+                        .Select(word => new SynonymWord { Text = word })
+                        .ToList();
+                })
+        );
+
+        foreach (GoodsSimple goods in goodsList) {
+
+            foreach (var hsCode in hsCodes.Where(hs => hs.DirectMatch.Count != 0)) {
+                foreach (var directMatch in hsCode.DirectMatch) {
+
+                    if (directMatch.Label.Equals(goods.Title, StringComparison.InvariantCultureIgnoreCase)) {
+                        goods.Matches.Add(new Match() {
+                            HsCode = hsCode.Code,
+                            DirectMatch = directMatch.Label
+                        });
+
+
+                        goods.HsCode = hsCode.Code;
+
+                    }
+                }
+            }
+
+            var goodsTitleWords = goods.Title
+                .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase)
+                .Except(whitelistTags, StringComparer.InvariantCultureIgnoreCase)
+                .Select(w => new GoodsListWord() {
+                    Word = w
+                });
+
+            goods.Words = [.. goodsTitleWords];
+
+            foreach (HsCode hsCode in hsCodes) {
+                var synonymAnyWordHits = hsCode.Synonyms
+                    .AsParallel()
+                    .Where(entry => entry.ComparisonType.Equals("AnyWord"))
+                    .Where(b => IsAnyWordHitV3(goods, b)).ToList();
+
+                var synonymAllWordHits = hsCode.Synonyms
+                    .AsParallel()
+                    .Where(entry => entry.ComparisonType.Equals("AllWords"))
+                    .Where(b => IsAllWordsHitV3(goods, b)).ToList();
+
+                var hits = synonymAllWordHits.Union(synonymAnyWordHits);
+
+                foreach (Synonym? hit in hits) {
+                    goods.Matches.Add(new Match() {
+                        HsCode = hsCode.Code,
+                        Synonym = hit
+                    });
+                }
+            }
+
+            if (string.IsNullOrEmpty(goods.HsCode) && goods.Matches.Count != 0) {
+                goods.HsCode = goods.Matches
+                    .OrderByDescending(m =>
+                        m.Synonym.Words
+                        .Average(w => w.Accuracy))
+                    .FirstOrDefault().HsCode ?? "";
+                continue;
+            }
+        }
+
+        return goodsList;
+    }
+
     static bool IsAnyWordHit(Goods goods, ISynonym synonym) {
 
         foreach (GoodsListWord word in goods.Words) {
@@ -282,6 +367,48 @@ public class BlacklistService {
     }
 
     static bool IsAllWordsHitV2(Goods goods, Synonym synonym) {
+
+        foreach (SynonymWord synonymWord in synonym.Words) {
+            bool matchFound = false;
+
+            foreach (GoodsListWord word in goods.Words) {
+                double difference = Comparer
+                    .CalculateLevenshteinDistance(word.Word, synonymWord.Text);
+
+                if (difference <= allowedDifference) {
+                    double accuracy = 1 - difference;
+                    synonymWord.Accuracy = accuracy;
+                    matchFound = true;
+                }
+            }
+
+            if (!matchFound) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static bool IsAnyWordHitV3(GoodsSimple goods, Synonym synonym) {
+
+        foreach (GoodsListWord word in goods.Words) {
+            foreach (SynonymWord synonymWord in synonym.Words) {
+
+                double difference = Comparer
+                    .CalculateLevenshteinDistance(word.Word, synonymWord.Text);
+
+                if (difference <= allowedDifference) {
+                    double accuracy = 1 - difference;
+                    synonymWord.Accuracy = accuracy;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    static bool IsAllWordsHitV3(GoodsSimple goods, Synonym synonym) {
 
         foreach (SynonymWord synonymWord in synonym.Words) {
             bool matchFound = false;

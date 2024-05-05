@@ -12,31 +12,48 @@ public class FileMakerService(IOptions<FileMakerOptions> fileMakerOptions, IHttp
     private static readonly JsonSerializerOptions jsonSerializerOptions
         = new() { PropertyNameCaseInsensitive = true };
 
+
     private readonly FileMakerOptions _fileMakerOptions = fileMakerOptions.Value;
 
     private async Task<string?> LoginAsync() {
         string basicAuth = Convert.ToBase64String(
             Encoding.UTF8.GetBytes($"{_fileMakerOptions.Username}:{_fileMakerOptions.Password}"));
 
-        using HttpClient client = httpClientFactory.CreateClient();
+        using HttpClient client = httpClientFactory.CreateClient("FM");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", basicAuth);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
 
-        StringContent content = new("{}", Encoding.UTF8, "application/json");
+        StringContent content = new("{}", new MediaTypeHeaderValue("application/json"));
 
         HttpResponseMessage response = await client.PostAsync(_fileMakerOptions.SessionsUrl, content);
 
         string responseContent = await response.Content.ReadAsStringAsync();
-        FilemakerSessionInfo? sessionInfo =
-            JsonSerializer.Deserialize<FilemakerSessionInfo>(responseContent, jsonSerializerOptions);
+        FilemakerSessionDto? sessionInfo =
+            JsonSerializer.Deserialize<FilemakerSessionDto>(responseContent, jsonSerializerOptions);
 
         return sessionInfo?.Response?.Token;
     }
 
-    public async Task<string> SubmitAsync() {
+    public async Task<string?> SubmitAsync(IEnumerable<LookupDto> lookupList) {
         string? token = await LoginAsync()
             ?? throw new Exception("Failed to log in");
 
-        return token;
+        using HttpClient client = httpClientFactory.CreateClient("FM");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+
+        string listJson = JsonSerializer.Serialize(lookupList);
+
+        FileMakerRecordDto record = new(listJson, "process-post");
+
+        string recordJson = JsonSerializer.Serialize(record);
+
+        StringContent content = new(recordJson, new MediaTypeHeaderValue("application/json"));
+
+        HttpResponseMessage response = await client.PostAsync(_fileMakerOptions.SubmitUrl, content);
+
+        string responseContent = await response.Content.ReadAsStringAsync();
+        FileMakerResponseDto? result = JsonSerializer.Deserialize<FileMakerResponseDto>(responseContent, jsonSerializerOptions);
+        return result?.Response?.ScriptResult;
     }
 }

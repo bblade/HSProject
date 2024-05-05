@@ -1,5 +1,6 @@
 using HSProject.Api.Authentication;
 using HSProject.Api.Options;
+using HSProject.Api.Services;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -15,6 +16,8 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services
     .Configure<FileMakerOptions>(
         builder.Configuration.GetSection(nameof(FileMakerOptions)));
+
+builder.Services.AddScoped<FileMakerService>();
 
 builder.Services.AddControllers().AddJsonOptions(options => {
     options.JsonSerializerOptions.PropertyNamingPolicy = null;
@@ -58,7 +61,10 @@ FileMakerOptions filemakerOptions = builder.Configuration
             .GetSection(nameof(FileMakerOptions))
             .Get<FileMakerOptions>() ?? new();
 
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("FM", m => { })
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler {
+        ServerCertificateCustomValidationCallback = (m, c, ch, e) => true, 
+});
 
 WebApplication app = builder.Build();
 

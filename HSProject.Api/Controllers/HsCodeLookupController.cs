@@ -10,7 +10,10 @@ public class HsCodeLookupController(FileMakerService fileMakerService) : Control
 
     [HttpPost]
     public async Task<IActionResult> LookupCodes(IEnumerable<LookupDto> lookupList) {
-        string token = await fileMakerService.SubmitAsync();
-        return Ok(token);
+        var result = await fileMakerService.SubmitAsync(lookupList);
+        return new ContentResult {
+            Content = result,
+            ContentType = "application/json"
+        };
     }
 }

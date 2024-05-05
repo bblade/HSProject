@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace HSProject.Api.Authenticationi; 
+namespace HSProject.Api.Authentication; 
 public class RegisterModel {
     [Required(ErrorMessage = "User Name is required")]
     public string? Username { get; set; }
