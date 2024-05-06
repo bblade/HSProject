@@ -5,6 +5,7 @@ using HSProject.Models;
 
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Text;
 
 namespace HSProject.Services;
 public class BlacklistService {
@@ -205,19 +206,144 @@ public class BlacklistService {
             }
 
             if (string.IsNullOrEmpty(goods.AssignedHsCode) && goods.Matches.Count != 0) {
+                //goods.AssignedHsCode = goods.Matches
+                //    .OrderByDescending(m =>
+                //        m.Synonym.Words
+                //        .Average(w => w.Accuracy))
+                //    .FirstOrDefault().HsCode ?? "";
+                //continue;
+
                 goods.AssignedHsCode = goods.Matches
                     .OrderByDescending(m =>
-                        m.Synonym.Words
-                        .Average(w => w.Accuracy))
+                        m.DirectMatch != null ? 1 : 0)
+                    .ThenByDescending(m =>
+                        m.Synonym?.Words
+                        .Average(w => w.Accuracy) ?? 0)
                     .FirstOrDefault().HsCode ?? "";
-                continue;
             }
         }
 
         return goodsList;
     }
 
+    public void CheckV3(InputDto inputDto) {
+
+        if (inputDto.Path == null) {
+            throw new Exception("No path specified");
+        }
+
+        allowedDifference = inputDto.AllowedDifference;
+
+        IEnumerable<Goods> goodsList = inputDto.Goods;
+        IEnumerable<string> exceptWords = inputDto.ExceptWords;
+        IEnumerable<HsCode> hsCodes = inputDto.HsCodes;
+        decimal defaultPriceLimit = inputDto.DefaultPriceLimit;
+        IEnumerable<string> whitelistTags = inputDto.WhitelistTags;
+
+        Parallel.ForEach(hsCodes, hsCode =>
+                Parallel.ForEach(hsCode.Synonyms
+                    .Where(b =>
+                        b.ComparisonType.Equals("AnyWord") ||
+                        b.ComparisonType.Equals("AllWords")),
+                    synonym => {
+                        synonym.Words = synonym.Label
+                            .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                            .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase)
+                            .Select(word => new SynonymWord {
+                                Text = word
+                            })
+                            .ToList();
+                    })
+            );
+
+        foreach (Goods goods in goodsList) {
+
+            foreach (var hsCode in hsCodes.Where(hs => hs.DirectMatch.Count != 0)) {
+                foreach (var directMatch in hsCode.DirectMatch) {
+
+                    if (directMatch.Label.Equals(goods.Title, StringComparison.InvariantCultureIgnoreCase)) {
+                        goods.Matches.Add(new Match() {
+                            HsCode = hsCode.Code,
+                            DirectMatch = directMatch.Label
+                        });
+
+                        if (string.IsNullOrWhiteSpace(goods.AssignedHsCode)) {
+                            goods.AssignedHsCode = hsCode.Code;
+                        }
+                    }
+                }
+            }
+
+            var goodsTitleWords = goods.Title
+                .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
+                .Except(exceptWords, StringComparer.InvariantCultureIgnoreCase)
+                .Except(whitelistTags, StringComparer.InvariantCultureIgnoreCase)
+                .Select(w => new GoodsListWord() {
+                    Word = w
+                });
+
+            goods.Words = [.. goodsTitleWords];
+
+            foreach (HsCode hsCode in hsCodes) {
+                var synonymAnyWordHits = hsCode.Synonyms
+                    .AsParallel()
+                    .Where(entry => entry.ComparisonType.Equals("AnyWord"))
+                    .Where(b => IsAnyWordHitV2(goods, b)).ToList();
+
+                var synonymAllWordHits = hsCode.Synonyms
+                    .AsParallel()
+                    .Where(entry => entry.ComparisonType.Equals("AllWords"))
+                    .Where(b => IsAllWordsHitV2(goods, b)).ToList();
+
+                var hits = synonymAllWordHits.Union(synonymAnyWordHits);
+
+                foreach (var hit in hits) {
+                    goods.Matches.Add(new Match() {
+                        HsCode = hsCode.Code,
+                        Synonym = hit
+                    });
+                }
+            }
+
+            if (string.IsNullOrEmpty(goods.AssignedHsCode) && goods.Matches.Count != 0) {
+
+                goods.AssignedHsCode = goods.Matches
+                    .OrderByDescending(m =>
+                        m.DirectMatch != null ? 1 : 0)
+                    .ThenByDescending(m =>
+                        m.Synonym?.Words
+                        .Average(w => w.Accuracy) ?? 0)
+                    .FirstOrDefault().HsCode ?? "";
+            }
+        }
+
+        ExportCsv(goodsList, inputDto.Path);
+
+    }
+
+    private static void ExportCsv(IEnumerable<Goods> goodsList, string path) {
+        StringBuilder stringBuilder = new();
+
+        foreach (Goods goods in goodsList) {
+            if (!string.IsNullOrWhiteSpace(goods.Id) && !string.IsNullOrWhiteSpace(goods.AssignedHsCode)) {
+                stringBuilder
+                    .Append(goods.Id.ToCsv())
+                    .Append(',')
+                    .AppendLine(goods.AssignedHsCode.ToCsv());
+            }            
+        }
+
+        string? directory = System.IO.Path.GetDirectoryName(path);
+
+        if (directory != null && !Directory.Exists(directory)) {
+            Directory.CreateDirectory(directory);
+        }
+        File.WriteAllText(path, stringBuilder.ToString());
+    }
+
     public IEnumerable<GoodsSimple> CheckSimple(InputDtoSimple inputDto) {
+
+        Console.WriteLine($"start {DateTime.Now.Ticks}");
 
         allowedDifference = inputDto.AllowedDifference;
 
@@ -240,7 +366,11 @@ public class BlacklistService {
                 })
         );
 
+
+
         foreach (GoodsSimple goods in goodsList) {
+
+            Console.WriteLine($"start {goods.Title} {DateTime.Now.Ticks}");
 
             foreach (var hsCode in hsCodes.Where(hs => hs.DirectMatch.Count != 0)) {
                 foreach (var directMatch in hsCode.DirectMatch) {
@@ -252,11 +382,13 @@ public class BlacklistService {
                         });
 
 
-                        goods.HsCode = hsCode.Code;
+                        goods.HsCode = hsCode.Code; //???
 
                     }
                 }
             }
+
+            Console.WriteLine($"split hscodes {DateTime.Now.Ticks}");
 
             var goodsTitleWords = goods.Title
                 .Split(separatorChars, StringSplitOptions.RemoveEmptyEntries)
@@ -267,6 +399,8 @@ public class BlacklistService {
                 });
 
             goods.Words = [.. goodsTitleWords];
+
+            Console.WriteLine($"split words {DateTime.Now.Ticks}");
 
             foreach (HsCode hsCode in hsCodes) {
                 var synonymAnyWordHits = hsCode.Synonyms
@@ -289,16 +423,21 @@ public class BlacklistService {
                 }
             }
 
-            if (string.IsNullOrEmpty(goods.HsCode) && goods.Matches.Count != 0) {
+            Console.WriteLine($"processed {DateTime.Now.Ticks}");
+
+            if (goods.Matches.Count != 0) {
                 goods.HsCode = goods.Matches
                     .OrderByDescending(m =>
-                        m.Synonym.Words
-                        .Average(w => w.Accuracy))
+                        m.DirectMatch != null ? 1 : 0)
+                    .ThenByDescending(m =>
+                        m.Synonym?.Words
+                        .Average(w => w.Accuracy) ?? 0)
                     .FirstOrDefault().HsCode ?? "";
-                continue;
             }
+            Console.WriteLine($"assembled {DateTime.Now.Ticks}");
         }
 
+        Console.WriteLine($"done {DateTime.Now.Ticks}");
         return goodsList;
     }
 
@@ -399,8 +538,8 @@ public class BlacklistService {
                     .CalculateLevenshteinDistance(word.Word, synonymWord.Text);
 
                 if (difference <= allowedDifference) {
-                    double accuracy = 1 - difference;
-                    synonymWord.Accuracy = accuracy;
+                    double accuracy = 1 - difference; //??
+                    synonymWord.Accuracy = accuracy; //??
                     return true;
                 }
             }

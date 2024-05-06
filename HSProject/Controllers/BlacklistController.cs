@@ -24,6 +24,13 @@ public class BlacklistController(BlacklistService blacklistService) : Controller
         return Ok(output);
     }
 
+    [HttpPost("v3")]
+    public IActionResult CheckV3([FromBody] InputDto blacklistDto) {
+
+        blacklistService.CheckV3(blacklistDto);
+        return Ok();
+    }
+
     [HttpPost("simple")]
     public IActionResult CheckSimple([FromBody] InputDtoSimple blacklistDto) {
 

@@ -10,4 +10,6 @@ public class InputDto {
     public List<HsCode> HsCodes { get; set; } = [];
     public decimal DefaultPriceLimit { get; set; }
 
+    public string? Path { get; set; }
+
 }
